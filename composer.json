@@ -1,0 +1,52 @@
+{
+    "name": "bcl/toolkit",
+    "description": "Shared MCP, auth, brand, and support code for BCL Laravel apps.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "dutchcodingcompany/filament-socialite": "^3.0",
+        "filament/filament": "^5.0",
+        "laravel/framework": "^13.7",
+        "laravel/mcp": "^0.9",
+        "laravel/passport": "^13.0",
+        "laravel/sanctum": "^4.0",
+        "socialiteproviders/microsoft": "^4.2",
+        "socialiteproviders/microsoft-azure": "^5.1",
+        "spatie/laravel-permission": "^8.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bcl\\Toolkit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Bcl\\Toolkit\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Bcl\\Toolkit\\ToolkitServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
