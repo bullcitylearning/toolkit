@@ -2,6 +2,7 @@
 
 namespace Bcl\Toolkit;
 
+use Bcl\Toolkit\Auth\ConfiguresBclAuth;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,6 +18,14 @@ class ToolkitServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'bcl-toolkit');
+
+        $this->publishes([
+            __DIR__.'/../resources/views/filament-socialite/buttons.blade.php' => resource_path('views/vendor/filament-socialite/components/buttons.blade.php'),
+        ], 'bcl-toolkit-views');
+
+        ConfiguresBclAuth::apply();
+
         $this->registerMcpRateLimiter();
         $this->registerMcpRouteMacro();
     }
