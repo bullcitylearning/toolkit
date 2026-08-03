@@ -35,6 +35,12 @@ class ToolkitServiceProvider extends ServiceProvider
 
         $this->registerMcpRateLimiter();
         $this->registerMcpRouteMacro();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\McpTokenCommand::class,
+            ]);
+        }
     }
 
     /**
