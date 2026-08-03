@@ -3,6 +3,7 @@
     "description": "Shared MCP, auth, brand, and support code for BCL Laravel apps.",
     "type": "library",
     "license": "proprietary",
+    "version": "0.1.0",
     "require": {
         "php": "^8.4",
         "dutchcodingcompany/filament-socialite": "^3.0",
