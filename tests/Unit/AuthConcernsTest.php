@@ -41,9 +41,9 @@ it('lets everyone into the panel when no allowlist is configured', function () {
 });
 
 it('gates panel access by email domain, case-insensitively and @-tolerant', function () {
-    config(['filament-socialite.domain_allowlist' => ['@BCLtraining.com']]);
+    config(['filament-socialite.domain_allowlist' => ['@Allowed-Org.test']]);
 
-    $staff = new AllowlistedUser(['email' => 'jim@bcltraining.com']);
+    $staff = new AllowlistedUser(['email' => 'staff@allowed-org.test']);
     $outsider = new AllowlistedUser(['email' => 'intruder@gmail.com']);
 
     expect($staff->canAccessPanel(mock(Panel::class)))->toBeTrue()
