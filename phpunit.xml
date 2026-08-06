@@ -18,7 +18,7 @@
         </include>
     </source>
     <php>
-        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+        <env name="APP_KEY" value="base64:2RYaV3Mfc4fe9lFz2EqCSwASVknr41phAD9YkFPZzng="/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
     </php>

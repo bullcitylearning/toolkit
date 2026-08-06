@@ -34,7 +34,7 @@ beforeEach(function () {
 
     config(['auth.providers.users.model' => CommandTestUser::class]);
 
-    CommandTestUser::create(['name' => 'Jim', 'email' => 'jim@bcltraining.com', 'password' => 'secret']);
+    CommandTestUser::create(['name' => 'Jim', 'email' => 'admin@example-org.test', 'password' => 'secret']);
 });
 
 it('issues a sanctum token with abilities and prints the config snippet', function () {
@@ -44,7 +44,7 @@ it('issues a sanctum token with abilities and prints the config snippet', functi
         '--ability' => ['org:bcl'],
         '--path' => '/mcp/publish',
     ])
-        ->expectsOutputToContain('MCP token (sanctum) issued for jim@bcltraining.com scoped to: org:bcl')
+        ->expectsOutputToContain('MCP token (sanctum) issued for admin@example-org.test scoped to: org:bcl')
         ->expectsOutputToContain('/mcp/publish')
         ->assertSuccessful();
 

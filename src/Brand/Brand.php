@@ -2,17 +2,90 @@
 
 namespace Bcl\Toolkit\Brand;
 
-enum Brand: string
+use Illuminate\Contracts\Database\Eloquent\Castable;
+use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
+use JsonSerializable;
+use ValueError;
+
+/**
+ * A public identity from the app's brand registry (config/brands.php).
+ * Config-backed rather than an enum so each org registers its own brands;
+ * the enum surface (from/tryFrom/->value, identity comparison via flyweight
+ * instances) is preserved so call sites read the same.
+ */
+final class Brand implements Castable, JsonSerializable
 {
-    case Bcl = 'bcl';
-    case Bcb = 'bcb';
+    /** @var array<string, self> */
+    private static array $instances = [];
+
+    private function __construct(public readonly string $value) {}
+
+    public static function from(string $slug): self
+    {
+        return self::tryFrom($slug) ?? throw new ValueError(
+            "\"{$slug}\" is not a registered brand — add it to brands.registry."
+        );
+    }
+
+    public static function tryFrom(?string $slug): ?self
+    {
+        if ($slug === null || $slug === '' || config("brands.registry.{$slug}") === null) {
+            return null;
+        }
+
+        return self::$instances[$slug] ??= new self($slug);
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function all(): array
+    {
+        return array_map(
+            fn (string $slug) => self::from($slug),
+            array_keys(config('brands.registry', [])),
+        );
+    }
+
+    /**
+     * Enum-compatible alias of all().
+     *
+     * @return list<self>
+     */
+    public static function cases(): array
+    {
+        return self::all();
+    }
+
+    /**
+     * The brand named by brands.default, if registered.
+     */
+    public static function default(): ?self
+    {
+        return self::tryFrom(config('brands.default'));
+    }
+
+    /**
+     * Resolve a brand from an HTTP Host header, falling back to the
+     * configured default.
+     */
+    public static function fromHost(?string $host): ?self
+    {
+        foreach (self::all() as $brand) {
+            if (strcasecmp((string) $host, $brand->domain()) === 0) {
+                return $brand;
+            }
+        }
+
+        return self::default();
+    }
 
     /**
      * @return array<string, mixed>
      */
     public function config(): array
     {
-        return config("brands.{$this->value}");
+        return config("brands.registry.{$this->value}");
     }
 
     public function displayName(): string
@@ -79,17 +152,32 @@ enum Brand: string
         return $this->config()['theme'];
     }
 
-    /**
-     * Resolve a brand from an HTTP Host header, defaulting to BCL.
-     */
-    public static function fromHost(?string $host): self
+    public function jsonSerialize(): string
     {
-        foreach (self::cases() as $brand) {
-            if (strcasecmp((string) $host, $brand->domain()) === 0) {
-                return $brand;
-            }
-        }
+        return $this->value;
+    }
 
-        return self::Bcl;
+    /**
+     * Eloquent cast: store the slug, hydrate the flyweight instance —
+     * '"brand" => Brand::class' works exactly like the old enum cast.
+     */
+    public static function castUsing(array $arguments): CastsAttributes
+    {
+        return new class implements CastsAttributes
+        {
+            public function get($model, string $key, $value, array $attributes): ?Brand
+            {
+                return Brand::tryFrom($value);
+            }
+
+            public function set($model, string $key, $value, array $attributes): ?string
+            {
+                return match (true) {
+                    $value === null => null,
+                    $value instanceof Brand => $value->value,
+                    default => Brand::from((string) $value)->value,
+                };
+            }
+        };
     }
 }

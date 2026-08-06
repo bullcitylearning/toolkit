@@ -23,9 +23,9 @@ class AdminPanelContract
 
     public static function assertGatesPanelByDomainAllowlist(TestCase $test): void
     {
-        config(['filament-socialite.domain_allowlist' => ['bcltraining.com']]);
+        config(['filament-socialite.domain_allowlist' => ['allowed-org.test']]);
 
-        $staff = static::userModel()::factory()->create(['email' => 'jim@bcltraining.com']);
+        $staff = static::userModel()::factory()->create(['email' => 'staff@allowed-org.test']);
         $outsider = static::userModel()::factory()->create(['email' => 'intruder@gmail.com']);
 
         $panel = filament()->getPanel('admin');

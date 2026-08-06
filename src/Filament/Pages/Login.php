@@ -2,6 +2,7 @@
 
 namespace Bcl\Toolkit\Filament\Pages;
 
+use Bcl\Toolkit\Brand\Brand;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Schema;
@@ -31,6 +32,14 @@ class Login extends BaseLogin
 
     public function getSubheading(): string|Htmlable|null
     {
-        return app()->isLocal() ? parent::getSubheading() : __('Sign in with your BCL Microsoft 365 account.');
+        if (app()->isLocal()) {
+            return parent::getSubheading();
+        }
+
+        $org = Brand::default()?->displayName();
+
+        return $org !== null
+            ? __('Sign in with your :org Microsoft 365 account.', ['org' => $org])
+            : __('Sign in with your Microsoft 365 account.');
     }
 }

@@ -3,7 +3,6 @@
 namespace Bcl\Toolkit;
 
 use Bcl\Toolkit\Auth\ConfiguresBclAuth;
-use Bcl\Toolkit\Brand\Brand;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -44,16 +43,16 @@ class ToolkitServiceProvider extends ServiceProvider
     }
 
     /**
-     * Give every brand a named mailer so Brand::mailer() targets always
-     * exist. The default mirrors the app's smtp mailer; apps needing
+     * Give every registered brand a named mailer so Brand::mailer() targets
+     * always exist. The default mirrors the app's smtp mailer; apps needing
      * DMARC-aligned per-brand transports define mail.mailers.<brand> in
-     * their own config/mail.php (pulse does).
+     * their own config/mail.php (pulse does). No-ops on an empty registry.
      */
     protected function registerBrandMailerDefaults(): void
     {
-        foreach (Brand::cases() as $brand) {
-            if (config("mail.mailers.{$brand->value}") === null) {
-                config(["mail.mailers.{$brand->value}" => config('mail.mailers.smtp')]);
+        foreach (array_keys(config('brands.registry', [])) as $slug) {
+            if (config("mail.mailers.{$slug}") === null) {
+                config(["mail.mailers.{$slug}" => config('mail.mailers.smtp')]);
             }
         }
     }
