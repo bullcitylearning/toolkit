@@ -2,6 +2,7 @@
 
 namespace Bcl\Toolkit\Filament;
 
+use Bcl\Toolkit\Auth\PasswordLogin;
 use DutchCodingCompany\FilamentSocialite\FilamentSocialitePlugin;
 use DutchCodingCompany\FilamentSocialite\Provider;
 use Illuminate\Support\Str;
@@ -24,9 +25,9 @@ class BclSocialitePlugin
             ])
             ->registration(true)
             ->domainAllowList(config('filament-socialite.domain_allowlist', []))
-            // No password form above the button in production, so the
-            // "or login via" divider would dangle.
-            ->showDivider(app()->isLocal())
+            // Without a password form above the button, the "or login via"
+            // divider would dangle.
+            ->showDivider(PasswordLogin::enabled())
             ->createUserUsing(function (string $provider, SocialiteUserContract $oauthUser) {
                 $model = config('auth.providers.users.model');
 

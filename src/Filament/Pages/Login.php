@@ -2,7 +2,7 @@
 
 namespace Bcl\Toolkit\Filament\Pages;
 
-use Bcl\Toolkit\Brand\Brand;
+use Bcl\Toolkit\Auth\PasswordLogin;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Schema;
@@ -12,14 +12,15 @@ use Illuminate\Contracts\Support\Htmlable;
 class Login extends BaseLogin
 {
     /**
-     * The panel is SSO-only outside local development: the login page shows
-     * just the Microsoft button (rendered by filament-socialite through the
-     * AUTH_LOGIN_FORM_AFTER hook). Locally the email/password form stays so
-     * make:filament-user accounts work without Azure credentials.
+     * The panel is SSO-only unless password login is enabled (always in
+     * local development, opt-in elsewhere via the
+     * filament-socialite.password_login config key — see PasswordLogin).
+     * When SSO-only, the page shows just the Microsoft button (rendered by
+     * filament-socialite through the AUTH_LOGIN_FORM_AFTER hook).
      */
     public function content(Schema $schema): Schema
     {
-        if (app()->isLocal()) {
+        if (PasswordLogin::enabled()) {
             return parent::content($schema);
         }
 
@@ -32,14 +33,8 @@ class Login extends BaseLogin
 
     public function getSubheading(): string|Htmlable|null
     {
-        if (app()->isLocal()) {
-            return parent::getSubheading();
-        }
-
-        $org = Brand::default()?->displayName();
-
-        return $org !== null
-            ? __('Sign in with your :org Microsoft 365 account.', ['org' => $org])
-            : __('Sign in with your Microsoft 365 account.');
+        return PasswordLogin::enabled()
+            ? parent::getSubheading()
+            : __('Sign in with your BCL Microsoft 365 account.');
     }
 }
