@@ -19,6 +19,7 @@
         "spatie/laravel-translatable": "^6.14"
     },
     "require-dev": {
+        "laravel/pint": "^1.27",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0"
@@ -41,6 +42,7 @@
         }
     },
     "scripts": {
+        "pint": "vendor/bin/pint",
         "test": "vendor/bin/pest"
     },
     "config": {
