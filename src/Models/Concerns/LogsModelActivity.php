@@ -10,7 +10,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * Schema requirements: the package's `activity_log` table must exist
  * (publish and run its migration:
- * `php artisan vendor:publish --tag=laravel-activitylog-migrations`).
+ * `php artisan vendor:publish --tag=activitylog-migrations`).
  *
  * Models never `use` the vendor trait directly — override
  * $activityLogExcluded (or getActivitylogOptions()) here or per model

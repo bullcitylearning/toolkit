@@ -27,7 +27,7 @@ class Course extends Model
 once per app:
 
 ```bash
-php artisan vendor:publish --tag=laravel-activitylog-migrations
+php artisan vendor:publish --tag=activitylog-migrations
 php artisan migrate
 ```
 
@@ -94,6 +94,9 @@ $table->json('metadata')->nullable();
   `CarbonInterface` values are normalized to date strings; `original_filename` is
   dropped rather than stored;
 - `clearAllMetadata()` forgets every key.
+
+`md` is a normal attribute, so `$model->md = [...]` always works; passing it to
+`create()`/`fill()` additionally requires `md` in the model's fillable list.
 
 **Without the column** the saving hook returns early instead of erroring, so the
 trait is safe on a table that hasn't been migrated yet. It does *not* strip a
