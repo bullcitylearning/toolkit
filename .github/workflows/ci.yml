@@ -1,62 +1,26 @@
 name: ci
 
-# Lint, test, and audit dependencies on every push. Nothing here deploys.
-#
-# The toolkit is a library, not a deployed app: its blast radius is every
-# consumer that pins it, so a red run here means "do not tag". The consuming
-# apps run the same three checks against their own trees — see the CI standard
-# in jims_dev_way/playbooks/deployment.md.
-#
-# Tests run against orchestra/testbench, so there is no .env, no application
-# key, and no front-end build to prepare. composer.lock is intentionally not
-# committed for a library, so the dependency cache keys on composer.json and
-# installs resolve fresh — which is also how consumers will resolve them.
+# Thin caller. The pipeline itself — Pint, Pest, a blocking composer audit, and
+# the reasoning for why nothing here deploys — lives once in the reusable
+# workflow below, so a fleet-wide CI change is one commit there instead of the
+# same edit in seven repos. The standard: jims_dev_way/playbooks/deployment.md.
 
 on:
   push:
   workflow_dispatch:
+  schedule:
+    # Weekly, so composer audit still runs on a repo nobody has pushed to: a new
+    # advisory against a quiet repo is invisible to push-only CI. The fleet's
+    # crons are staggered five minutes apart rather than firing at once; this
+    # repo owns Monday 11:05 UTC. Scheduled runs only ever use the default branch.
+    - cron: '5 11 * * 1'
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    name: Lint, test, audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-
-      - name: Set up PHP 8.4
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: intl, zip, gd, pdo_sqlite, sqlite3
-          coverage: none
-          tools: composer:v2
-
-      - name: Resolve the Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Composer packages
-        uses: actions/cache@v6
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ runner.os }}-php8.4-
-
-      - name: Install Composer dependencies
-        env:
-          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}'
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Check formatting (Pint)
-        run: composer pint -- --test
-
-      - name: Run tests (Pest)
-        run: composer test
-
-      - name: Audit dependencies for advisories
-        run: composer audit
+    uses: wrightster/.github/.github/workflows/laravel-ci.yml@main
+    with:
+      # A library, not an app: testbench, composer scripts, no lock file.
+      package-mode: true
