@@ -1,8 +1,12 @@
 <?php
 
+use Bcl\Toolkit\Mcp\Tool;
+use Bcl\Toolkit\Testing\InstructionsVersion;
 use Bcl\Toolkit\Tests\Fixtures\VersionedServer;
 use Bcl\Toolkit\Tests\Fixtures\VersionedTool;
 use Laravel\Mcp\Request;
+use Laravel\Mcp\Server;
+use PHPUnit\Framework\AssertionFailedError;
 
 function versionedToolText(?int $sent): string
 {
@@ -23,7 +27,7 @@ it('auto-adds the instructions_version parameter to versioned tool schemas', fun
 });
 
 it('leaves unversioned tool schemas alone', function () {
-    $tool = new class extends Bcl\Toolkit\Mcp\Tool {};
+    $tool = new class extends Tool {};
 
     expect((array) ($tool->toArray()['inputSchema']['properties'] ?? []))
         ->not->toHaveKey('instructions_version');
@@ -48,11 +52,11 @@ it('stays quiet when the current version is echoed', function () {
 });
 
 it('passes the packaged contract assertion for a conforming server', function () {
-    Bcl\Toolkit\Testing\InstructionsVersion::assertContract(VersionedServer::class);
+    InstructionsVersion::assertContract(VersionedServer::class);
 
     expect(true)->toBeTrue();
 });
 
 it('fails the contract assertion for a non-conforming server', function () {
-    Bcl\Toolkit\Testing\InstructionsVersion::assertContract(Laravel\Mcp\Server::class);
-})->throws(PHPUnit\Framework\AssertionFailedError::class);
+    InstructionsVersion::assertContract(Server::class);
+})->throws(AssertionFailedError::class);

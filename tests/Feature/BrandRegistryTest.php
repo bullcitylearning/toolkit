@@ -1,6 +1,8 @@
 <?php
 
 use Bcl\Toolkit\Brand\Brand;
+use Bcl\Toolkit\ToolkitServiceProvider;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 
 beforeEach(function () {
@@ -89,7 +91,7 @@ it('resolves a brand from a host header, falling back to the default', function 
 });
 
 it('casts to and from the slug on eloquent models', function () {
-    $model = new class extends Illuminate\Database\Eloquent\Model
+    $model = new class extends Model
     {
         protected $guarded = [];
 
@@ -112,7 +114,7 @@ it('casts to and from the slug on eloquent models', function () {
 it('registers default mailers for registered brands', function () {
     // The provider registered mailers at boot from the (empty) shipped
     // registry; re-run against the fixture registry.
-    (fn () => $this->registerBrandMailerDefaults())->call(app()->getProvider(Bcl\Toolkit\ToolkitServiceProvider::class));
+    (fn () => $this->registerBrandMailerDefaults())->call(app()->getProvider(ToolkitServiceProvider::class));
 
     expect(config('mail.mailers.acme'))->not->toBeNull()
         ->and(config('mail.mailers.zenith.transport'))->toBe(config('mail.mailers.smtp.transport'));

@@ -3,6 +3,7 @@
 use Bcl\Toolkit\Support\Expirable;
 use Bcl\Toolkit\Support\HasCapabilityToken;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 
 class ExpirableThing extends Model
@@ -43,7 +44,7 @@ it('casts expires_at and reports expiry', function () {
     $live = ExpirableThing::create(['expires_at' => now()->addDay()]);
     $forever = ExpirableThing::create(['expires_at' => null]);
 
-    expect($expired->expires_at)->toBeInstanceOf(Illuminate\Support\Carbon::class)
+    expect($expired->expires_at)->toBeInstanceOf(Carbon::class)
         ->and($expired->isExpired())->toBeTrue()
         ->and($live->isExpired())->toBeFalse()
         ->and($forever->isExpired())->toBeFalse();

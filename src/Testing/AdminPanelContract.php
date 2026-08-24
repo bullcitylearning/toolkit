@@ -4,6 +4,7 @@ namespace Bcl\Toolkit\Testing;
 
 use Illuminate\Foundation\Testing\TestCase;
 use Laravel\Passport\ClientRepository;
+use PHPUnit\Framework\Assert;
 
 /**
  * The canonical admin-panel access behaviors every BCL app upholds. Each
@@ -18,7 +19,7 @@ class AdminPanelContract
 
         $user = static::userModel()::factory()->create(['email' => 'someone@example.com']);
 
-        \PHPUnit\Framework\Assert::assertTrue($user->canAccessPanel(filament()->getPanel('admin')));
+        Assert::assertTrue($user->canAccessPanel(filament()->getPanel('admin')));
     }
 
     public static function assertGatesPanelByDomainAllowlist(TestCase $test): void
@@ -30,8 +31,8 @@ class AdminPanelContract
 
         $panel = filament()->getPanel('admin');
 
-        \PHPUnit\Framework\Assert::assertTrue($staff->canAccessPanel($panel));
-        \PHPUnit\Framework\Assert::assertFalse($outsider->canAccessPanel($panel));
+        Assert::assertTrue($staff->canAccessPanel($panel));
+        Assert::assertFalse($outsider->canAccessPanel($panel));
     }
 
     /**

@@ -1,11 +1,12 @@
 <?php
 
+use Bcl\Toolkit\Auth\Concerns\HasApiTokens;
 use Illuminate\Foundation\Auth\User as AuthUser;
 use Illuminate\Support\Facades\Schema;
 
 class CommandTestUser extends AuthUser
 {
-    use Bcl\Toolkit\Auth\Concerns\HasApiTokens;
+    use HasApiTokens;
 
     protected $table = 'users';
 
