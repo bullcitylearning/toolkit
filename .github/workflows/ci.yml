@@ -1,0 +1,62 @@
+name: ci
+
+# Lint, test, and audit dependencies on every push. Nothing here deploys.
+#
+# The toolkit is a library, not a deployed app: its blast radius is every
+# consumer that pins it, so a red run here means "do not tag". The consuming
+# apps run the same three checks against their own trees — see the CI standard
+# in jims_dev_way/playbooks/deployment.md.
+#
+# Tests run against orchestra/testbench, so there is no .env, no application
+# key, and no front-end build to prepare. composer.lock is intentionally not
+# committed for a library, so the dependency cache keys on composer.json and
+# installs resolve fresh — which is also how consumers will resolve them.
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint, test, audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, zip, gd, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Resolve the Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-php8.4-
+
+      - name: Install Composer dependencies
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}'
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check formatting (Pint)
+        run: composer pint -- --test
+
+      - name: Run tests (Pest)
+        run: composer test
+
+      - name: Audit dependencies for advisories
+        run: composer audit
