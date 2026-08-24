@@ -54,6 +54,47 @@ class QuietWidget extends Model
     }
 }
 
+/**
+ * Encrypted casts decrypt on access, and activitylog reads attributes
+ * through their accessors — so these are the ones that would land in
+ * activity_log in plaintext without the automatic exclusion.
+ */
+class SecretWidget extends Model
+{
+    use LogsModelActivity;
+
+    protected $table = 'widgets';
+
+    protected $guarded = [];
+
+    protected $casts = [
+        'token' => 'encrypted',
+        'payload' => 'encrypted:array',
+    ];
+}
+
+/**
+ * Both kinds of exclusion at once: the model's own list and the
+ * automatic encrypted-cast one have to survive the merge.
+ */
+class SecretQuietWidget extends Model
+{
+    use LogsModelActivity;
+
+    protected $table = 'widgets';
+
+    protected $guarded = [];
+
+    protected $casts = ['token' => 'encrypted'];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        $this->activityLogExcluded = ['name'];
+    }
+}
+
 beforeEach(function () {
     // The package publishes this migration rather than running it, so
     // the suite executes the vendor stub directly — no schema to drift.
@@ -63,6 +104,8 @@ beforeEach(function () {
         $table->id();
         $table->string('name');
         $table->string('password')->nullable();
+        $table->text('token')->nullable();
+        $table->text('payload')->nullable();
         $table->json('metadata')->nullable();
         $table->timestamps();
     });
@@ -125,5 +168,45 @@ it('lets a model retune the exclusion list', function () {
     $attributes = Activity::query()->sole()->attribute_changes['attributes'];
 
     expect($attributes)->not->toHaveKey('name')
+        ->and($attributes)->toHaveKey('password');
+});
+
+it('never logs an encrypted-cast attribute, in either direction', function () {
+    $widget = SecretWidget::create([
+        'name' => 'first',
+        'token' => 'dropbox-token-one',
+        'payload' => ['refresh' => 'one'],
+    ]);
+
+    Activity::query()->delete();
+
+    $widget->update([
+        'name' => 'second',
+        'token' => 'dropbox-token-two',
+        'payload' => ['refresh' => 'two'],
+    ]);
+
+    $changes = Activity::query()->sole()->attribute_changes;
+
+    // No key at all — not the plaintext, not the ciphertext.
+    expect($changes['attributes'])->toHaveKey('name')
+        ->and($changes['attributes'])->not->toHaveKey('token')
+        ->and($changes['attributes'])->not->toHaveKey('payload')
+        ->and($changes['old'])->not->toHaveKey('token')
+        ->and($changes['old'])->not->toHaveKey('payload')
+        ->and(json_encode($changes))->not->toContain('dropbox-token');
+});
+
+it('merges the encrypted exclusions with the model own list', function () {
+    SecretQuietWidget::create([
+        'name' => 'first',
+        'password' => 'secret',
+        'token' => 'dropbox-token-one',
+    ]);
+
+    $attributes = Activity::query()->sole()->attribute_changes['attributes'];
+
+    expect($attributes)->not->toHaveKey('token')
+        ->and($attributes)->not->toHaveKey('name')
         ->and($attributes)->toHaveKey('password');
 });

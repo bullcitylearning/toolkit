@@ -25,6 +25,9 @@ trait LogsModelActivity
      * JSON blobs whose old+new diff bloats each activity_log row.
      * (users.metadata old+new alone reached ~140KB/row during the
      * recursive-metadata-corruption window.)
+     *
+     * Encrypted-cast attributes are excluded on top of this list
+     * automatically — see encryptedCastAttributes().
      */
     protected array $activityLogExcluded = [
         'password',
@@ -43,7 +46,10 @@ trait LogsModelActivity
             // (logExcept WITHOUT logAll is a no-op — there's no base
             // list to subtract from.)
             ->logAll()
-            ->logExcept($this->activityLogExcluded)
+            ->logExcept(array_values(array_unique(array_merge(
+                $this->activityLogExcluded,
+                $this->encryptedCastAttributes(),
+            ))))
             // Only record columns that actually changed, and skip the
             // write entirely when nothing meaningful did — kills the
             // timestamp-only / no-op log noise.
@@ -52,5 +58,26 @@ trait LogsModelActivity
             // same semantics (logEmptyChanges = false).
             ->dontLogEmptyChanges()
             ->useLogName($this->getTable());
+    }
+
+    /**
+     * Attributes cast with `encrypted`/`encrypted:*`, which activitylog
+     * would otherwise log in PLAINTEXT: it reads attributes through their
+     * accessors, and an encrypted cast decrypts on access, so logAll()
+     * writes the decrypted old and new secret into activity_log. (Found
+     * in FileClerk: a Dropbox token rotation logged both tokens in the
+     * clear.) There is deliberately no opt-out flag — a model that truly
+     * must log an encrypted attribute overrides getActivitylogOptions()
+     * and owns that decision in its own file.
+     *
+     * @return list<string>
+     */
+    protected function encryptedCastAttributes(): array
+    {
+        return array_keys(array_filter(
+            $this->getCasts(),
+            fn ($cast) => is_string($cast)
+                && ($cast === 'encrypted' || str_starts_with($cast, 'encrypted:')),
+        ));
     }
 }
