@@ -84,18 +84,29 @@ it('saves normally on a table without a metadata column', function () {
 it('writes no metadata attribute when the column is absent', function () {
     $staged = null;
 
-    // Registered after the trait's hook, so it sees what the hook did —
-    // then cancels the insert, which would fail on the md attribute the
-    // guard deliberately leaves in place.
+    // Registered after the trait's hook, so it sees what the hook did.
     PlainGadget::saving(function ($model) use (&$staged) {
         $staged = array_keys($model->getAttributes());
-
-        return false;
     });
 
-    (new PlainGadget(['name' => 'a', 'md' => ['colour' => 'red']]))->save();
+    PlainGadget::create(['name' => 'a']);
 
     expect($staged)->not->toContain('metadata');
+});
+
+it('throws when md is staged on a table without a metadata column', function () {
+    // Failing loudly beats the two alternatives: silently discarding what
+    // the caller staged, or letting `md` reach the insert as an opaque
+    // "no column named md".
+    expect(fn () => (new PlainGadget(['name' => 'a', 'md' => ['colour' => 'red']]))->save())
+        ->toThrow(RuntimeException::class, 'table plain_gadgets has no `metadata` column');
+
+    expect(PlainGadget::query()->count())->toBe(0);
+});
+
+it('names the model class in the metadata-column exception', function () {
+    expect(fn () => (new PlainGadget(['name' => 'a', 'md' => ['colour' => 'red']]))->save())
+        ->toThrow(RuntimeException::class, PlainGadget::class);
 });
 
 it('queries through the withMetadata scope', function () {

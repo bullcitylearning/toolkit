@@ -41,6 +41,28 @@ for empty diffs, and the log name is the model's table.
 secrets plus heavy JSON. **Leave `metadata` excluded**: its old+new diff once
 produced ~140KB activity_log rows.
 
+**Encrypted-cast attributes are excluded automatically** (since v1.2.0), on top
+of that list. Activitylog reads attributes through their accessors, and an
+`encrypted` cast decrypts on access — so `logAll()` would write the decrypted
+old *and* new secret into `activity_log` in plaintext. FileClerk proved it: a
+Dropbox token rotation logged both tokens in the clear. Every attribute whose
+cast is `encrypted` or starts with `encrypted:` (`encrypted:array`,
+`encrypted:collection`, `encrypted:json`, `encrypted:object`) is dropped from
+the diff entirely — no plaintext, no ciphertext, no key at all:
+
+```php
+protected $casts = ['dropbox_token' => 'encrypted'];   // never logged
+```
+
+There is deliberately **no opt-out flag**. A model that genuinely must log an
+encrypted attribute overrides `getActivitylogOptions()` outright and owns that
+decision in its own file, where a reader can see it.
+
+The rule matches *string* casts only. Laravel's class-based encrypted casts
+(`AsEncryptedArrayObject`, `AsEncryptedCollection`) are **not** detected — add
+those attribute names to `$activityLogExcluded` by hand. Any hand-rolled
+activity logging elsewhere in an app must honor the same rule.
+
 **Overriding the exclusions.** PHP forbids redeclaring a trait property with a
 different default, so a model that uses the trait cannot write
 `protected array $activityLogExcluded = [...]`. Assign it instead:
@@ -98,10 +120,20 @@ $table->json('metadata')->nullable();
 `md` is a normal attribute, so `$model->md = [...]` always works; passing it to
 `create()`/`fill()` additionally requires `md` in the model's fillable list.
 
-**Without the column** the saving hook returns early instead of erroring, so the
-trait is safe on a table that hasn't been migrated yet. It does *not* strip a
-staged `md` in that case — don't feed `md` to a model whose table has no
-`metadata` column.
+**Without the column** a plain save still passes straight through, so the trait
+is safe on a table that hasn't been migrated yet — but staging `md` on such a
+model throws a `RuntimeException` naming the model, the table, and the fix
+(since v1.2.0):
+
+```
+Staged `md` metadata on App\Models\Widget but table widgets has no `metadata`
+column — add the column or stop staging md.
+```
+
+Failing loudly beats both alternatives: silently discarding metadata the caller
+staged is a data-loss footgun, and letting `md` through to the insert only buys
+an opaque "no column named md" from the driver. The fix is one of the two the
+message names — add the migration, or stop binding `md` on that model.
 
 **Discipline:** metadata is for sparse, per-instance display/config data. The
 moment a key is queried, sorted, joined, or validated across rows, promote it to

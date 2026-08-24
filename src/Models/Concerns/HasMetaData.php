@@ -5,6 +5,7 @@ namespace Bcl\Toolkit\Models\Concerns;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Spatie\SchemalessAttributes\Casts\SchemalessAttributes;
 
 /**
@@ -13,8 +14,10 @@ use Spatie\SchemalessAttributes\Casts\SchemalessAttributes;
  * so forms can write metadata without a per-key mutator.
  *
  * Schema requirements: the model's table needs a nullable `metadata`
- * json column. Without it the saving hook no-ops (degrade explicitly)
- * so the trait is safe on tables that haven't been migrated yet.
+ * json column. Without it a plain save still no-ops safely, but staging
+ * `md` throws — silently dropping data the caller staged is a data-loss
+ * footgun, and letting `md` reach the insert only buys an opaque
+ * "no column named md" from the driver.
  *
  * Discipline: metadata is for sparse, per-instance display/config data.
  * The moment a key is queried, sorted, joined, or validated across rows,
@@ -37,7 +40,17 @@ trait HasMetaData
         static::saving(function ($model) {
 
             if (! $model->hasMetadataColumn()) {
-                return;
+                // Nothing staged: stay cheap and let the save through.
+                if (! array_key_exists('md', $model->getAttributes())) {
+                    return;
+                }
+
+                throw new RuntimeException(sprintf(
+                    'Staged `md` metadata on %s but table %s has no `metadata` column '
+                    .'— add the column or stop staging md.',
+                    $model::class,
+                    $model->getTable(),
+                ));
             }
 
             $md = $model->getAttribute('md') ?? [];
