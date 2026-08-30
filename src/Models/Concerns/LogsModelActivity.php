@@ -61,14 +61,21 @@ trait LogsModelActivity
     }
 
     /**
-     * Attributes cast with `encrypted`/`encrypted:*`, which activitylog
-     * would otherwise log in PLAINTEXT: it reads attributes through their
+     * Attributes cast with `encrypted`/`encrypted:*`, or with one of
+     * Laravel's `AsEncrypted*` class casts, which activitylog would
+     * otherwise log in PLAINTEXT: it reads attributes through their
      * accessors, and an encrypted cast decrypts on access, so logAll()
      * writes the decrypted old and new secret into activity_log. (Found
      * in FileClerk: a Dropbox token rotation logged both tokens in the
-     * clear.) There is deliberately no opt-out flag — a model that truly
-     * must log an encrypted attribute overrides getActivitylogOptions()
-     * and owns that decision in its own file.
+     * clear.) `$hidden` is no defence — activitylog never goes through
+     * toArray(). There is deliberately no opt-out flag: a model that
+     * truly must log an encrypted attribute overrides
+     * getActivitylogOptions() and owns that decision in its own file.
+     *
+     * The class-cast half matches on the `AsEncrypted` basename prefix
+     * rather than an exact list, so the next one Laravel ships is covered
+     * on arrival. The rule can only ever widen exclusions, so
+     * over-matching is safe by construction.
      *
      * @return list<string>
      */
@@ -76,8 +83,17 @@ trait LogsModelActivity
     {
         return array_keys(array_filter(
             $this->getCasts(),
-            fn ($cast) => is_string($cast)
-                && ($cast === 'encrypted' || str_starts_with($cast, 'encrypted:')),
+            fn ($cast) => is_string($cast) && (
+                $cast === 'encrypted'
+                || str_starts_with($cast, 'encrypted:')
+                // Class casts arrive as `Fully\Qualified\Name`, or as
+                // `Fully\Qualified\Name:arg,arg` for the parameterised
+                // forms (AsEncryptedCollection::of(...)) — drop the
+                // arguments first, the way Eloquent's own
+                // parseCasterClass() does, or the basename would be the
+                // argument's class instead of the cast's.
+                || str_starts_with(class_basename(explode(':', $cast, 2)[0]), 'AsEncrypted')
+            ),
         ));
     }
 }

@@ -45,23 +45,42 @@ produced ~140KB activity_log rows.
 of that list. Activitylog reads attributes through their accessors, and an
 `encrypted` cast decrypts on access — so `logAll()` would write the decrypted
 old *and* new secret into `activity_log` in plaintext. FileClerk proved it: a
-Dropbox token rotation logged both tokens in the clear. Every attribute whose
-cast is `encrypted` or starts with `encrypted:` (`encrypted:array`,
-`encrypted:collection`, `encrypted:json`, `encrypted:object`) is dropped from
-the diff entirely — no plaintext, no ciphertext, no key at all:
+Dropbox token rotation logged both tokens in the clear. `$hidden` is no defence
+either: activitylog reads through `getAttribute()` and never calls `toArray()`.
+
+Both spellings of an encrypted cast are covered (the class casts since v1.2.1),
+and an excluded attribute is dropped from the diff entirely — no plaintext, no
+ciphertext, no key at all:
 
 ```php
-protected $casts = ['dropbox_token' => 'encrypted'];   // never logged
+protected $casts = [
+    'dropbox_token' => 'encrypted',                      // never logged
+    'settings' => 'encrypted:array',                     // never logged
+    'profile' => AsEncryptedArrayObject::class,          // never logged
+    'tokens' => AsEncryptedCollection::of(Token::class), // never logged
+];
 ```
+
+- **String casts:** `encrypted`, or anything starting with `encrypted:`
+  (`encrypted:array`, `encrypted:collection`, `encrypted:json`,
+  `encrypted:object`).
+- **Class casts:** any cast whose class basename starts with `AsEncrypted` —
+  matched by prefix rather than by an exact list of the two Laravel ships
+  today, so the next one is covered on arrival. Cast arguments are stripped
+  before the basename is read (`AsEncryptedCollection::of(Token::class)`
+  serialises to `…\AsEncryptedCollection:,App\Token`, whose literal basename
+  is `Token`), which is what makes the parameterised forms match.
+
+The rule can only ever *widen* exclusions, so over-matching is safe by
+construction — an app cast of its own named `AsEncryptedSomething` is excluded
+too, which is the behavior you want.
 
 There is deliberately **no opt-out flag**. A model that genuinely must log an
 encrypted attribute overrides `getActivitylogOptions()` outright and owns that
-decision in its own file, where a reader can see it.
+decision in its own file, where a reader can see it — and an override has to
+re-apply `encryptedCastAttributes()` by hand, or it re-opens this hole.
 
-The rule matches *string* casts only. Laravel's class-based encrypted casts
-(`AsEncryptedArrayObject`, `AsEncryptedCollection`) are **not** detected — add
-those attribute names to `$activityLogExcluded` by hand. Any hand-rolled
-activity logging elsewhere in an app must honor the same rule.
+Any hand-rolled activity logging elsewhere in an app must honor the same rule.
 
 **Overriding the exclusions.** PHP forbids redeclaring a trait property with a
 different default, so a model that uses the trait cannot write

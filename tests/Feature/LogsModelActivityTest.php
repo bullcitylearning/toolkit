@@ -1,7 +1,12 @@
 <?php
 
 use Bcl\Toolkit\Models\Concerns\LogsModelActivity;
+use Illuminate\Database\Eloquent\Casts\AsArrayObject;
+use Illuminate\Database\Eloquent\Casts\AsCollection;
+use Illuminate\Database\Eloquent\Casts\AsEncryptedArrayObject;
+use Illuminate\Database\Eloquent\Casts\AsEncryptedCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Activitylog\Models\Activity;
 
@@ -71,6 +76,62 @@ class SecretWidget extends Model
         'token' => 'encrypted',
         'payload' => 'encrypted:array',
     ];
+}
+
+/**
+ * The class-cast half of the same hole: AsEncryptedArrayObject and
+ * AsEncryptedCollection decrypt on access exactly like `encrypted:*`,
+ * so they have to be excluded on the same terms. `of()` is included
+ * because it appends the mapped class to the cast string, which is
+ * where a naive basename check reads the wrong class name.
+ */
+class ClassCastSecretWidget extends Model
+{
+    use LogsModelActivity;
+
+    protected $table = 'widgets';
+
+    protected $guarded = [];
+
+    protected $casts = [
+        'token' => AsEncryptedArrayObject::class,
+        'payload' => AsEncryptedCollection::class,
+    ];
+}
+
+class MappedClassCastSecretWidget extends Model
+{
+    use LogsModelActivity;
+
+    protected $table = 'widgets';
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return ['payload' => AsEncryptedCollection::of(Collection::class)];
+    }
+}
+
+/**
+ * The rule must not swallow ordinary class casts — over-matching is safe
+ * for AsEncrypted*, but a cast that merely *has* a class name is not it.
+ */
+class PlainClassCastWidget extends Model
+{
+    use LogsModelActivity;
+
+    protected $table = 'widgets';
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return [
+            'metadata' => AsArrayObject::class,
+            'payload' => AsCollection::of(Collection::class),
+        ];
+    }
 }
 
 /**
@@ -209,4 +270,62 @@ it('merges the encrypted exclusions with the model own list', function () {
     expect($attributes)->not->toHaveKey('token')
         ->and($attributes)->not->toHaveKey('name')
         ->and($attributes)->toHaveKey('password');
+});
+
+it('never logs an attribute cast with an AsEncrypted class cast', function () {
+    $widget = ClassCastSecretWidget::create([
+        'name' => 'first',
+        'token' => ['access' => 'dropbox-token-one'],
+        'payload' => ['refresh' => 'one'],
+    ]);
+
+    Activity::query()->delete();
+
+    $widget->update([
+        'name' => 'second',
+        'token' => ['access' => 'dropbox-token-two'],
+        'payload' => ['refresh' => 'two'],
+    ]);
+
+    $changes = Activity::query()->sole()->attribute_changes;
+
+    expect($changes['attributes'])->toHaveKey('name')
+        ->and($changes['attributes'])->not->toHaveKey('token')
+        ->and($changes['attributes'])->not->toHaveKey('payload')
+        ->and($changes['old'])->not->toHaveKey('token')
+        ->and($changes['old'])->not->toHaveKey('payload')
+        ->and(json_encode($changes))->not->toContain('dropbox-token');
+});
+
+it('sees through the arguments a parameterised encrypted cast appends', function () {
+    // AsEncryptedCollection::of() yields "…\AsEncryptedCollection:,Some\Class",
+    // whose *basename* is the mapped class — so a naive basename check
+    // reads "Collection" and lets the secret through.
+    expect((new MappedClassCastSecretWidget)->getActivitylogOptions()->logExceptAttributes)
+        ->toContain('payload');
+
+    $widget = MappedClassCastSecretWidget::create(['name' => 'first', 'payload' => ['refresh' => 'one']]);
+
+    Activity::query()->delete();
+
+    $widget->update(['payload' => ['refresh' => 'two']]);
+
+    // dontLogEmptyChanges(): the only changed column is excluded, so
+    // there is no row at all to leak from.
+    expect(Activity::query()->count())->toBe(0);
+});
+
+it('leaves ordinary class casts alone', function () {
+    // Over-matching is safe for AsEncrypted*, but a cast that merely has
+    // a class name is not it — this is what the prefix discriminates.
+    expect((new PlainClassCastWidget)->getActivitylogOptions()->logExceptAttributes)
+        ->not->toContain('payload');
+
+    $widget = PlainClassCastWidget::create(['name' => 'first', 'payload' => ['note' => 'one']]);
+
+    Activity::query()->delete();
+
+    $widget->update(['payload' => ['note' => 'two']]);
+
+    expect(Activity::query()->sole()->attribute_changes['attributes'])->toHaveKey('payload');
 });
