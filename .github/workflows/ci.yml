@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   ci:
-    uses: wrightster/.github/.github/workflows/laravel-ci.yml@main
+    uses: wrightster/.github/.github/workflows/laravel-ci.yml@it-infra-0145-npm-audit-accepted
     with:
       # A library, not an app: testbench, composer scripts, no lock file.
       package-mode: true
